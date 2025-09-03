@@ -52,7 +52,7 @@ def setup_logger(log_path: Path) -> logging.Logger:
     return logger
 
 
-def upload_file(client: OpenAI, file_path: Path, logger: logging.Logger) -> str:
+def upload_file(client: OpenAI, file_path: Path, logger: logging.Logger, verbose: bool = False) -> str:
     """Upload file to OpenAI and return file ID."""
     logger.info(f"UPLOAD - Starting file upload: {file_path}")
     
@@ -67,6 +67,15 @@ def upload_file(client: OpenAI, file_path: Path, logger: logging.Logger) -> str:
         logger.info(f"UPLOAD - Success: file_id={file_id}")
         logger.info(f"UPLOAD - Response: {response.model_dump()}")
         
+        if verbose:
+            print(f"\nRaw API Response (upload_file):")
+            try:
+                print(json.dumps(response.model_dump(), indent=2))
+            except (TypeError, ValueError) as e:
+                print(f"Unable to serialize response: {e}")
+                print(f"Response: {response.model_dump()}")
+            print()
+        
         return file_id
         
     except Exception as e:
@@ -74,7 +83,7 @@ def upload_file(client: OpenAI, file_path: Path, logger: logging.Logger) -> str:
         raise
 
 
-def create_batch(client: OpenAI, file_id: str, endpoint: str, completion_window: str, logger: logging.Logger) -> Dict[str, Any]:
+def create_batch(client: OpenAI, file_id: str, endpoint: str, completion_window: str, logger: logging.Logger, verbose: bool = False) -> Dict[str, Any]:
     """Create a batch job and return batch info."""
     logger.info(f"CREATE_BATCH - Starting batch creation: file_id={file_id}, endpoint={endpoint}, window={completion_window}")
     
@@ -91,6 +100,15 @@ def create_batch(client: OpenAI, file_id: str, endpoint: str, completion_window:
         logger.info(f"CREATE_BATCH - Success: batch_id={batch_id}")
         logger.info(f"CREATE_BATCH - Response: {batch_dict}")
         
+        if verbose:
+            print(f"\nRaw API Response (create_batch):")
+            try:
+                print(json.dumps(batch_dict, indent=2))
+            except (TypeError, ValueError) as e:
+                print(f"Unable to serialize response: {e}")
+                print(f"Response: {batch_dict}")
+            print()
+        
         return batch_dict
         
     except Exception as e:
@@ -98,7 +116,7 @@ def create_batch(client: OpenAI, file_id: str, endpoint: str, completion_window:
         raise
 
 
-def get_batch_status(client: OpenAI, batch_id: str, logger: logging.Logger) -> Dict[str, Any]:
+def get_batch_status(client: OpenAI, batch_id: str, logger: logging.Logger, verbose: bool = False) -> Dict[str, Any]:
     """Get batch status and return batch info."""
     logger.info(f"GET_STATUS - Retrieving status for batch_id={batch_id}")
     
@@ -110,6 +128,15 @@ def get_batch_status(client: OpenAI, batch_id: str, logger: logging.Logger) -> D
         logger.info(f"GET_STATUS - Success: status={status}")
         logger.info(f"GET_STATUS - Response: {batch_dict}")
         
+        if verbose:
+            print(f"\nRaw API Response (get_batch_status):")
+            try:
+                print(json.dumps(batch_dict, indent=2))
+            except (TypeError, ValueError) as e:
+                print(f"Unable to serialize response: {e}")
+                print(f"Response: {batch_dict}")
+            print()
+        
         return batch_dict
         
     except Exception as e:
@@ -117,7 +144,7 @@ def get_batch_status(client: OpenAI, batch_id: str, logger: logging.Logger) -> D
         raise
 
 
-def cancel_batch(client: OpenAI, batch_id: str, logger: logging.Logger) -> Dict[str, Any]:
+def cancel_batch(client: OpenAI, batch_id: str, logger: logging.Logger, verbose: bool = False) -> Dict[str, Any]:
     """Cancel a batch job and return batch info."""
     logger.info(f"CANCEL_BATCH - Starting batch cancellation: batch_id={batch_id}")
     
@@ -129,6 +156,15 @@ def cancel_batch(client: OpenAI, batch_id: str, logger: logging.Logger) -> Dict[
         logger.info(f"CANCEL_BATCH - Success: status={status}")
         logger.info(f"CANCEL_BATCH - Response: {batch_dict}")
         
+        if verbose:
+            print(f"\nRaw API Response (cancel_batch):")
+            try:
+                print(json.dumps(batch_dict, indent=2))
+            except (TypeError, ValueError) as e:
+                print(f"Unable to serialize response: {e}")
+                print(f"Response: {batch_dict}")
+            print()
+        
         return batch_dict
         
     except Exception as e:
@@ -136,7 +172,7 @@ def cancel_batch(client: OpenAI, batch_id: str, logger: logging.Logger) -> Dict[
         raise
 
 
-def list_batches(client: OpenAI, limit: Optional[int], logger: logging.Logger) -> list:
+def list_batches(client: OpenAI, limit: Optional[int], logger: logging.Logger, verbose: bool = False) -> list:
     """List batch jobs and return list of batch info."""
     logger.info(f"LIST_BATCHES - Starting batch listing with limit={limit}")
     
@@ -151,6 +187,15 @@ def list_batches(client: OpenAI, limit: Optional[int], logger: logging.Logger) -
         
         logger.info(f"LIST_BATCHES - Success: retrieved {len(batches)} batches")
         logger.info(f"LIST_BATCHES - Batch IDs: {[b.get('id', 'unknown') for b in batches]}")
+        
+        if verbose:
+            print(f"\nRaw API Response (list_batches):")
+            try:
+                print(json.dumps(batches, indent=2))
+            except (TypeError, ValueError) as e:
+                print(f"Unable to serialize response: {e}")
+                print(f"Response: {batches}")
+            print()
         
         return batches
         
@@ -205,10 +250,10 @@ def cmd_create(args: argparse.Namespace, client: OpenAI, logger: logging.Logger)
     
     try:
         # Upload file
-        file_id = upload_file(client, input_path, logger)
+        file_id = upload_file(client, input_path, logger, args.verbose)
         
         # Create batch
-        batch_info = create_batch(client, file_id, args.endpoint, args.completion_window, logger)
+        batch_info = create_batch(client, file_id, args.endpoint, args.completion_window, logger, args.verbose)
         batch_id = batch_info['id']
         
         # Output to stdout
@@ -227,7 +272,7 @@ def cmd_status(args: argparse.Namespace, client: OpenAI, logger: logging.Logger)
     """Handle status subcommand."""
     try:
         # Get batch status
-        batch_info = get_batch_status(client, args.batch_id, logger)
+        batch_info = get_batch_status(client, args.batch_id, logger, args.verbose)
         
         # Print status info to stdout
         status = batch_info.get('status', 'unknown')
@@ -268,7 +313,7 @@ def cmd_retrieve(args: argparse.Namespace, client: OpenAI, logger: logging.Logge
     """Handle retrieve subcommand."""
     try:
         # Get batch status first
-        batch_info = get_batch_status(client, args.batch_id, logger)
+        batch_info = get_batch_status(client, args.batch_id, logger, args.verbose)
         status = batch_info.get('status', 'unknown')
         
         if status != 'completed':
@@ -304,7 +349,7 @@ def cmd_cancel(args: argparse.Namespace, client: OpenAI, logger: logging.Logger)
     """Handle cancel subcommand."""
     try:
         # Cancel the batch
-        batch_info = cancel_batch(client, args.batch_id, logger)
+        batch_info = cancel_batch(client, args.batch_id, logger, args.verbose)
         status = batch_info.get('status', 'unknown')
         
         # Output to stdout
@@ -334,7 +379,7 @@ def cmd_list(args: argparse.Namespace, client: OpenAI, logger: logging.Logger) -
     """Handle list subcommand."""
     try:
         # List all batches
-        batches = list_batches(client, args.limit, logger)
+        batches = list_batches(client, args.limit, logger, args.verbose)
         
         if not batches:
             print("No batch jobs found.")
@@ -384,24 +429,31 @@ def cmd_list(args: argparse.Namespace, client: OpenAI, logger: logging.Logger) -
 
 def create_parser() -> argparse.ArgumentParser:
     """Create command line argument parser."""
+    # Create parent parser with common arguments
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument(
+        '--log-file',
+        type=Path,
+        help='Log file path (default: logs/batch_YYYYMMDD_HHMMSS.log)'
+    )
+    parent_parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Display raw API responses'
+    )
+    
+    # Main parser
     parser = argparse.ArgumentParser(
         description='OpenAI Batch API CLI tool',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   %(prog)s create --in requests.jsonl --endpoint "/v1/responses" --completion-window 24h
-  %(prog)s status --batch-id batch_abc123
-  %(prog)s retrieve --batch-id batch_abc123 --out my_results.jsonl
-  %(prog)s cancel --batch-id batch_abc123
-  %(prog)s list --limit 10
+  %(prog)s status --batch-id batch_abc123 --verbose
+  %(prog)s retrieve --batch-id batch_abc123 --out my_results.jsonl --verbose
+  %(prog)s cancel --batch-id batch_abc123 --verbose
+  %(prog)s list --limit 10 --verbose
         """
-    )
-    
-    # Common arguments
-    parser.add_argument(
-        '--log-file',
-        type=Path,
-        help='Log file path (default: logs/batch_YYYYMMDD_HHMMSS.log)'
     )
     
     # Subcommands
@@ -409,28 +461,28 @@ Examples:
     subparsers.required = True
     
     # Create subcommand
-    create_parser = subparsers.add_parser('create', help='Upload file and create batch')
+    create_parser = subparsers.add_parser('create', help='Upload file and create batch', parents=[parent_parser])
     create_parser.add_argument('--in', dest='input_file', required=True, help='Input JSONL file path')
     create_parser.add_argument('--endpoint', default='/v1/responses', help='API endpoint (default: /v1/responses)')
     create_parser.add_argument('--completion-window', default='24h', help='Completion window (default: 24h)')
     
     # Status subcommand
-    status_parser = subparsers.add_parser('status', help='Check batch status')
+    status_parser = subparsers.add_parser('status', help='Check batch status', parents=[parent_parser])
     status_parser.add_argument('--batch-id', required=True, help='Batch ID to check')
     status_parser.add_argument('--auto-save', action='store_true', default=True, help='Auto-save results if completed (default: on)')
     status_parser.add_argument('--no-auto-save', dest='auto_save', action='store_false', help='Disable auto-save')
     
     # Retrieve subcommand
-    retrieve_parser = subparsers.add_parser('retrieve', help='Retrieve batch results')
+    retrieve_parser = subparsers.add_parser('retrieve', help='Retrieve batch results', parents=[parent_parser])
     retrieve_parser.add_argument('--batch-id', required=True, help='Batch ID to retrieve')
     retrieve_parser.add_argument('--out', help='Output file path (default: results_<batch_id>.jsonl)')
     
     # Cancel subcommand
-    cancel_parser = subparsers.add_parser('cancel', help='Cancel batch job')
+    cancel_parser = subparsers.add_parser('cancel', help='Cancel batch job', parents=[parent_parser])
     cancel_parser.add_argument('--batch-id', required=True, help='Batch ID to cancel')
     
     # List subcommand
-    list_parser = subparsers.add_parser('list', help='List all batch jobs')
+    list_parser = subparsers.add_parser('list', help='List all batch jobs', parents=[parent_parser])
     list_parser.add_argument('--limit', type=int, help='Maximum number of batches to retrieve')
     
     return parser
