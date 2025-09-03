@@ -9,7 +9,9 @@ A collection of Python CLI tools for processing artist data with OpenAI's Batch 
 
 - Python 3.11+
 - For `gen_batch_jsonl.py`: No external dependencies (uses standard library only)
-- For `batch_tool.py`: OpenAI Python SDK (`pip install openai`)
+- For `batch_tool.py`: 
+  - OpenAI Python SDK (`pip install openai`)
+  - OpenAI API key (set via `OPENAI_API_KEY` environment variable)
 
 ## Installation
 
@@ -53,7 +55,11 @@ Converts CSV files of artist data into OpenAI Batch API JSONL format.
 ## Basic Usage
 
 ```bash
+# With prompt version
 python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0
+
+# Without prompt version (version field omitted from JSON)
+python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen
 ```
 
 ## Configuration Options
@@ -102,6 +108,7 @@ Known for 'love the world'"
 
 Each line in the output file will be a JSON object formatted for the OpenAI Batch API:
 
+**With prompt version:**
 ```json
 {
   "custom_id": "a1",
@@ -120,6 +127,24 @@ Each line in the output file will be a JSON object formatted for the OpenAI Batc
 }
 ```
 
+**Without prompt version (when `--prompt-version` is omitted):**
+```json
+{
+  "custom_id": "a1",
+  "method": "POST", 
+  "url": "/v1/responses",
+  "body": {
+    "prompt": {
+      "id": "bio_gen",
+      "variables": {
+        "artist_name": "NewJeans",
+        "artist_data": "K-pop group; ADOR; 'Supernatural' era"
+      }
+    }
+  }
+}
+```
+
 ## Configuration
 
 Configuration can be provided via CLI flags (higher priority) or environment variables:
@@ -127,7 +152,7 @@ Configuration can be provided via CLI flags (higher priority) or environment var
 | CLI Flag | Environment Variable | Description | Required |
 |----------|---------------------|-------------|----------|
 | `--prompt-id` | `PROMPT_ID` | Prompt identifier | Yes |
-| `--prompt-version` | `PROMPT_VERSION` | Prompt version | Yes |
+| `--prompt-version` | `PROMPT_VERSION` | Prompt version | No (optional) |
 
 ## Error Handling
 
@@ -289,7 +314,7 @@ Each line is a JSON object for the OpenAI Batch API:
 | Tool | CLI Flag | Environment Variable | Description | Required |
 |------|----------|---------------------|-------------|----------|
 | `gen_batch_jsonl.py` | `--prompt-id` | `PROMPT_ID` | Prompt identifier | Yes |
-| `gen_batch_jsonl.py` | `--prompt-version` | `PROMPT_VERSION` | Prompt version | Yes |
+| `gen_batch_jsonl.py` | `--prompt-version` | `PROMPT_VERSION` | Prompt version | No (optional) |
 | `batch_tool.py` | N/A | `OPENAI_API_KEY` | OpenAI API key | Yes |
 
 ## Error Handling

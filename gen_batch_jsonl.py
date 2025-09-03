@@ -30,22 +30,26 @@ def build_task_row(
     artist_name: str,
     artist_data: str,
     prompt_id: str,
-    prompt_version: str
+    prompt_version: Optional[str] = None
 ) -> Dict[str, Any]:
     """Build a single JSONL task row for the OpenAI Batch API."""
+    prompt = {
+        "id": prompt_id,
+        "variables": {
+            "artist_name": artist_name,
+            "artist_data": artist_data
+        }
+    }
+    
+    if prompt_version:
+        prompt["version"] = prompt_version
+    
     return {
         "custom_id": artist_id,
         "method": "POST",
         "url": "/v1/responses",
         "body": {
-            "prompt": {
-                "id": prompt_id,
-                "version": prompt_version,
-                "variables": {
-                    "artist_name": artist_name,
-                    "artist_data": artist_data
-                }
-            }
+            "prompt": prompt
         }
     }
 
@@ -168,7 +172,7 @@ def convert_csv_to_jsonl(
     return stats
 
 
-def get_config_value(arg_value: Optional[str], env_var: str, name: str) -> str:
+def get_config_value(arg_value: Optional[str], env_var: str, name: str, required: bool = True) -> Optional[str]:
     """Get configuration value from CLI arg or environment variable."""
     if arg_value:
         return arg_value
@@ -177,7 +181,10 @@ def get_config_value(arg_value: Optional[str], env_var: str, name: str) -> str:
     if env_value:
         return env_value
     
-    raise ValueError(f"{name} must be provided via --{name.lower().replace('_', '-')} or {env_var} environment variable")
+    if required:
+        raise ValueError(f"{name} must be provided via --{name.lower().replace('_', '-')} or {env_var} environment variable")
+    
+    return None
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -264,10 +271,13 @@ def main() -> int:
     
     try:
         prompt_id = get_config_value(args.prompt_id, 'PROMPT_ID', 'prompt_id')
-        prompt_version = get_config_value(args.prompt_version, 'PROMPT_VERSION', 'prompt_version')
+        prompt_version = get_config_value(args.prompt_version, 'PROMPT_VERSION', 'prompt_version', required=False)
         
         logging.info(f"Converting {args.input_file} to {args.output_file}")
-        logging.info(f"Using prompt_id: {prompt_id}, prompt_version: {prompt_version}")
+        if prompt_version:
+            logging.info(f"Using prompt_id: {prompt_id}, prompt_version: {prompt_version}")
+        else:
+            logging.info(f"Using prompt_id: {prompt_id} (no version specified)")
         
         if args.limit:
             logging.info(f"Limiting to first {args.limit} rows")
