@@ -35,6 +35,7 @@ class TestBuildTaskRow(unittest.TestCase):
             artist_name="Test Artist",
             artist_data="Test data",
             prompt_id="bio_gen",
+            model="gpt-4o",
             prompt_version="v1.0"
         )
         
@@ -43,6 +44,7 @@ class TestBuildTaskRow(unittest.TestCase):
             "method": "POST",
             "url": "/v1/responses",
             "body": {
+                "model": "gpt-4o",
                 "prompt": {
                     "id": "bio_gen",
                     "version": "v1.0",
@@ -63,6 +65,7 @@ class TestBuildTaskRow(unittest.TestCase):
             artist_name="Artist",
             artist_data="",
             prompt_id="prompt",
+            model="gpt-3.5-turbo",
             prompt_version="v2"
         )
         
@@ -75,6 +78,7 @@ class TestBuildTaskRow(unittest.TestCase):
             artist_name="Björk",
             artist_data="Icelandic artist with émotion",
             prompt_id="test",
+            model="claude-3-sonnet",
             prompt_version="v1"
         )
         
@@ -87,7 +91,8 @@ class TestBuildTaskRow(unittest.TestCase):
             artist_id="test_id",
             artist_name="Test Artist",
             artist_data="Test data",
-            prompt_id="bio_gen"
+            prompt_id="bio_gen",
+            model="gpt-4o"
         )
         
         expected = {
@@ -95,6 +100,7 @@ class TestBuildTaskRow(unittest.TestCase):
             "method": "POST",
             "url": "/v1/responses",
             "body": {
+                "model": "gpt-4o",
                 "prompt": {
                     "id": "bio_gen",
                     "variables": {
@@ -116,6 +122,7 @@ class TestBuildTaskRow(unittest.TestCase):
             artist_name="Test Artist",
             artist_data="Test data",
             prompt_id="bio_gen",
+            model="gpt-4o",
             prompt_version=None
         )
         
@@ -129,6 +136,7 @@ class TestBuildTaskRow(unittest.TestCase):
             artist_name="Test Artist",
             artist_data="Test data",
             prompt_id="bio_gen",
+            model="gpt-4o",
             prompt_version=""
         )
         
@@ -263,6 +271,7 @@ a2,Stereolab,Post-rock band""")
                 input_path=input_path,
                 output_path=output_path,
                 prompt_id="test_prompt",
+                model="gpt-4o",
                 prompt_version="v1.0"
             )
             
@@ -301,6 +310,7 @@ a3,Artist Three,Data three""")
                 input_path=input_path,
                 output_path=output_path,
                 prompt_id="test",
+                model="gpt-3.5-turbo",
                 prompt_version="v1",
                 limit=2
             )
@@ -329,6 +339,7 @@ a3,Another Valid,More valid data""")
                     input_path=input_path,
                     output_path=output_path,
                     prompt_id="test",
+                    model="claude-3-haiku",
                     prompt_version="v1",
                     strict=False
                 )
@@ -428,6 +439,7 @@ a2,Stereolab,Post-rock band""")
                 input_path=input_path,
                 output_path=output_path,
                 prompt_id="test_prompt",
+                model="gpt-5-nano",
                 prompt_version=None
             )
             
@@ -462,6 +474,7 @@ a1,Artist One,Data one""")
                 input_path=input_path,
                 output_path=output_path,
                 prompt_id="test_prompt",
+                model="gpt-4-turbo",
                 prompt_version="v1.0"
             )
             

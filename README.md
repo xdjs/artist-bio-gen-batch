@@ -31,8 +31,11 @@ export OPENAI_API_KEY=your_api_key_here
 Here's how to use both tools together for end-to-end batch processing:
 
 ```bash
-# 1. Convert CSV to JSONL format
+# 1. Convert CSV to JSONL format (uses default model: gpt-5-nano)
 python gen_batch_jsonl.py --in artists.csv --out batch_requests.jsonl --prompt-id bio_gen --prompt-version v1.0
+
+# Or specify custom model
+python gen_batch_jsonl.py --in artists.csv --out batch_requests.jsonl --prompt-id bio_gen --prompt-version v1.0 --model gpt-4o
 
 # 2. Create batch job
 python batch_tool.py create --in batch_requests.jsonl
@@ -64,11 +67,14 @@ Converts CSV files of artist data into OpenAI Batch API JSONL format.
 ## Basic Usage
 
 ```bash
-# With prompt version
+# Basic usage with default model (gpt-5-nano)
 python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0
 
+# Specify custom model
+python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0 --model gpt-4o
+
 # Without prompt version (version field omitted from JSON)
-python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen
+python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --model claude-3-5-sonnet
 ```
 
 ## Configuration Options
@@ -77,22 +83,23 @@ python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen
 ```bash
 export PROMPT_ID=bio_gen
 export PROMPT_VERSION=v1.0
+export MODEL=gpt-4o
 python gen_batch_jsonl.py --in input.csv --out output.jsonl
 ```
 
 ### Advanced Flags
 ```bash
 # Limit processing to first 10 rows (for testing)
-python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0 --limit 10
+python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0 --model gpt-4o --limit 10
 
 # Process CSV without header (assumes artist_id,artist_name,artist_data order)
-python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0 --skip-header
+python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0 --model gpt-4o --skip-header
 
 # Strict mode: fail if any row is invalid (default: skip bad rows)
-python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0 --strict
+python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0 --model gpt-4o --strict
 
 # Verbose logging
-python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0 --verbose
+python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id bio_gen --prompt-version v1.0 --model gpt-4o --verbose
 ```
 
 ## Input CSV Format
@@ -124,6 +131,7 @@ Each line in the output file will be a JSON object formatted for the OpenAI Batc
   "method": "POST", 
   "url": "/v1/responses",
   "body": {
+    "model": "gpt-5-nano",
     "prompt": {
       "id": "bio_gen",
       "version": "v1.0",
@@ -143,6 +151,7 @@ Each line in the output file will be a JSON object formatted for the OpenAI Batc
   "method": "POST", 
   "url": "/v1/responses",
   "body": {
+    "model": "gpt-5-nano",
     "prompt": {
       "id": "bio_gen",
       "variables": {
@@ -158,10 +167,11 @@ Each line in the output file will be a JSON object formatted for the OpenAI Batc
 
 Configuration can be provided via CLI flags (higher priority) or environment variables:
 
-| CLI Flag | Environment Variable | Description | Required |
-|----------|---------------------|-------------|----------|
-| `--prompt-id` | `PROMPT_ID` | Prompt identifier | Yes |
-| `--prompt-version` | `PROMPT_VERSION` | Prompt version | No (optional) |
+| CLI Flag | Environment Variable | Description | Required | Default |
+|----------|---------------------|-------------|----------|---------|
+| `--prompt-id` | `PROMPT_ID` | Prompt identifier | Yes | - |
+| `--prompt-version` | `PROMPT_VERSION` | Prompt version | No | - |
+| `--model` | `MODEL` | Model name | No | `gpt-5-nano` |
 
 ## Error Handling
 
@@ -174,8 +184,11 @@ Configuration can be provided via CLI flags (higher priority) or environment var
 ### Test with Sample Data
 
 ```bash
-# Use the provided sample data
+# Use the provided sample data with default model
 python gen_batch_jsonl.py --in samples/input.csv --out test_output.jsonl --prompt-id bio_gen --prompt-version v1.0
+
+# Use custom model
+python gen_batch_jsonl.py --in samples/input.csv --out test_output.jsonl --prompt-id bio_gen --prompt-version v1.0 --model gpt-4o
 
 # Check the first line of output
 head -1 test_output.jsonl
@@ -183,17 +196,17 @@ head -1 test_output.jsonl
 
 Expected first line output:
 ```json
-{"custom_id": "a1", "method": "POST", "url": "/v1/responses", "body": {"prompt": {"id": "bio_gen", "version": "v1.0", "variables": {"artist_name": "NewJeans", "artist_data": "K-pop group; ADOR; 'Supernatural' era"}}}}
+{"custom_id": "a1", "method": "POST", "url": "/v1/responses", "body": {"model": "gpt-5-nano", "prompt": {"id": "bio_gen", "version": "v1.0", "variables": {"artist_name": "NewJeans", "artist_data": "K-pop group; ADOR; 'Supernatural' era"}}}}
 ```
 
-### Test with Sample Data
+### Additional Examples
 
 ```bash
-# Use the provided sample data
-python gen_batch_jsonl.py --in samples/input.csv --out test_output.jsonl --prompt-id bio_gen --prompt-version v1.0
+# Process only first 2 rows for testing with custom model
+python gen_batch_jsonl.py --in samples/input.csv --out test.jsonl --prompt-id test --prompt-version v1 --model claude-3-haiku --limit 2 --verbose
 
-# Process only first 2 rows for testing
-python gen_batch_jsonl.py --in samples/input.csv --out test.jsonl --prompt-id test --prompt-version v1 --limit 2 --verbose
+# Using environment variables for all configuration
+MODEL=gpt-4-turbo PROMPT_ID=bio_gen PROMPT_VERSION=v2.0 python gen_batch_jsonl.py --in samples/input.csv --out batch.jsonl
 ```
 
 ---
@@ -448,6 +461,7 @@ Each line is a JSON object for the OpenAI Batch API:
   "method": "POST", 
   "url": "/v1/responses",
   "body": {
+    "model": "gpt-5-nano",
     "prompt": {
       "id": "bio_gen",
       "version": "v1.0",
@@ -469,11 +483,12 @@ Each line is a JSON object for the OpenAI Batch API:
 2. Environment variables
 3. Error if missing
 
-| Tool | CLI Flag | Environment Variable | Description | Required |
-|------|----------|---------------------|-------------|----------|
-| `gen_batch_jsonl.py` | `--prompt-id` | `PROMPT_ID` | Prompt identifier | Yes |
-| `gen_batch_jsonl.py` | `--prompt-version` | `PROMPT_VERSION` | Prompt version | No (optional) |
-| `batch_tool.py` | N/A | `OPENAI_API_KEY` | OpenAI API key | Yes |
+| Tool | CLI Flag | Environment Variable | Description | Required | Default |
+|------|----------|---------------------|-------------|----------|---------|
+| `gen_batch_jsonl.py` | `--prompt-id` | `PROMPT_ID` | Prompt identifier | Yes | - |
+| `gen_batch_jsonl.py` | `--prompt-version` | `PROMPT_VERSION` | Prompt version | No | - |
+| `gen_batch_jsonl.py` | `--model` | `MODEL` | Model name | No | `gpt-5-nano` |
+| `batch_tool.py` | N/A | `OPENAI_API_KEY` | OpenAI API key | Yes | - |
 
 ## Error Handling
 - **Exit codes**: 0 for success, 1 for fatal errors, 2 for invalid arguments
