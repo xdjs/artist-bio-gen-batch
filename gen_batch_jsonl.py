@@ -3,7 +3,7 @@
 CLI tool to convert CSV of artist data to OpenAI Batch API JSONL format.
 
 Usage:
-    python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id <id> --prompt-version <ver>
+    python gen_batch_jsonl.py --in input.csv --out output.jsonl --prompt-id <id> --prompt-version <ver> --model <model>
 """
 
 import argparse
@@ -30,6 +30,7 @@ def build_task_row(
     artist_name: str,
     artist_data: str,
     prompt_id: str,
+    model: str,
     prompt_version: Optional[str] = None
 ) -> Dict[str, Any]:
     """Build a single JSONL task row for the OpenAI Batch API."""
@@ -49,6 +50,7 @@ def build_task_row(
         "method": "POST",
         "url": "/v1/responses",
         "body": {
+            "model": model,
             "prompt": prompt
         }
     }
@@ -125,7 +127,8 @@ def convert_csv_to_jsonl(
     input_path: Path,
     output_path: Path,
     prompt_id: str,
-    prompt_version: str,
+    model: str,
+    prompt_version: Optional[str] = None,
     limit: Optional[int] = None,
     skip_header: bool = False,
     strict: bool = False
@@ -148,6 +151,7 @@ def convert_csv_to_jsonl(
                         row_data['artist_name'],
                         row_data['artist_data'],
                         prompt_id,
+                        model,
                         prompt_version
                     )
                     
@@ -203,9 +207,9 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --in artists.csv --out batch.jsonl --prompt-id bio_gen --prompt-version v1.0
-  %(prog)s --in data.csv --out output.jsonl --prompt-id gen --prompt-version v2 --limit 10
-  PROMPT_ID=bio_gen PROMPT_VERSION=v1.0 %(prog)s --in data.csv --out output.jsonl
+  %(prog)s --in artists.csv --out batch.jsonl --prompt-id bio_gen --prompt-version v1.0 --model gpt-5-nano
+  %(prog)s --in data.csv --out output.jsonl --prompt-id gen --prompt-version v2 --model gpt-4o --limit 10
+  MODEL=gpt-4o PROMPT_ID=bio_gen PROMPT_VERSION=v1.0 %(prog)s --in data.csv --out output.jsonl
         """
     )
     
@@ -233,6 +237,11 @@ Examples:
     parser.add_argument(
         '--prompt-version',
         help='Prompt version (or use PROMPT_VERSION env var)'
+    )
+    
+    parser.add_argument(
+        '--model',
+        help='Model name (or use MODEL env var, default: gpt-5-nano)'
     )
     
     parser.add_argument(
@@ -272,12 +281,13 @@ def main() -> int:
     try:
         prompt_id = get_config_value(args.prompt_id, 'PROMPT_ID', 'prompt_id')
         prompt_version = get_config_value(args.prompt_version, 'PROMPT_VERSION', 'prompt_version', required=False)
+        model = get_config_value(args.model, 'MODEL', 'model', required=False) or 'gpt-5-nano'
         
         logging.info(f"Converting {args.input_file} to {args.output_file}")
         if prompt_version:
-            logging.info(f"Using prompt_id: {prompt_id}, prompt_version: {prompt_version}")
+            logging.info(f"Using prompt_id: {prompt_id}, prompt_version: {prompt_version}, model: {model}")
         else:
-            logging.info(f"Using prompt_id: {prompt_id} (no version specified)")
+            logging.info(f"Using prompt_id: {prompt_id}, model: {model} (no version specified)")
         
         if args.limit:
             logging.info(f"Limiting to first {args.limit} rows")
@@ -286,6 +296,7 @@ def main() -> int:
             input_path=args.input_file,
             output_path=args.output_file,
             prompt_id=prompt_id,
+            model=model,
             prompt_version=prompt_version,
             limit=args.limit,
             skip_header=args.skip_header,
