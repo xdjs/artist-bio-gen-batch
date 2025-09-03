@@ -50,6 +50,9 @@ python batch_tool.py cancel --batch-id batch-def456
 
 # 6. List all batches to see overview
 python batch_tool.py list --limit 10
+
+# 7. Use --verbose with any command for debugging
+python batch_tool.py status --batch-id batch-def456 --verbose
 ```
 
 ---
@@ -199,6 +202,13 @@ python gen_batch_jsonl.py --in samples/input.csv --out test.jsonl --prompt-id te
 
 Manages OpenAI Batch API operations: creating batches, checking status, retrieving results, cancelling jobs, and listing all batches.
 
+## Global Options
+
+All batch tool commands support these common options:
+
+- `--log-file <path>`: Custom log file path (default: `logs/batch_YYYYMMDD_HHMMSS.log`)
+- `--verbose`: Display raw API responses for debugging
+
 ## Operations
 
 ### 1. Create Batch
@@ -218,6 +228,9 @@ python batch_tool.py create --in input.jsonl
 ```bash
 python batch_tool.py create --in requests.jsonl --endpoint "/v1/responses" --completion-window 24h
 # Output: File ID: file-abc123, Batch ID: batch-def456
+
+# With verbose output to see raw API responses
+python batch_tool.py create --in requests.jsonl --verbose
 ```
 
 ### 2. Check Status
@@ -233,6 +246,18 @@ python batch_tool.py status --batch-id batch-def456
 - `--auto-save` (default: on): Automatically download results if completed
 - `--no-auto-save`: Disable automatic result download
 
+**Examples:**
+```bash
+# Basic status check
+python batch_tool.py status --batch-id batch-def456
+
+# With verbose output to see full API response
+python batch_tool.py status --batch-id batch-def456 --verbose
+
+# Disable auto-save
+python batch_tool.py status --batch-id batch-def456 --no-auto-save
+```
+
 **Output examples:**
 ```
 # In progress
@@ -240,6 +265,23 @@ Status: in_progress
 Created: 2024-01-15T10:30:00
 
 # Completed with auto-save
+Status: completed
+Created: 2024-01-15T10:30:00
+Completed: 2024-01-15T11:45:00
+Results saved: results_batch-def456.jsonl (15420 bytes)
+
+# With verbose flag (shows raw JSON response first)
+Raw API Response (get_batch_status):
+{
+  "id": "batch-def456",
+  "status": "completed",
+  "created_at": 1705311000,
+  "completed_at": 1705315500,
+  "endpoint": "/v1/responses",
+  "output_file_id": "file-xyz789",
+  ...
+}
+
 Status: completed
 Created: 2024-01-15T10:30:00
 Completed: 2024-01-15T11:45:00
@@ -252,6 +294,9 @@ Manually download results from a completed batch:
 
 ```bash
 python batch_tool.py retrieve --batch-id batch-def456 --out my_results.jsonl
+
+# With verbose output to see raw API responses
+python batch_tool.py retrieve --batch-id batch-def456 --verbose
 ```
 
 **Options:**
@@ -264,6 +309,9 @@ Cancel a batch job that is queued or in progress:
 
 ```bash
 python batch_tool.py cancel --batch-id batch-def456
+
+# With verbose output to see raw API responses
+python batch_tool.py cancel --batch-id batch-def456 --verbose
 ```
 
 **Options:**
@@ -296,6 +344,12 @@ List all batch jobs in your account:
 
 ```bash
 python batch_tool.py list
+
+# With verbose output to see raw API responses
+python batch_tool.py list --verbose
+
+# Limit results
+python batch_tool.py list --limit 5
 ```
 
 **Options:**
@@ -333,7 +387,9 @@ python batch_tool.py list
 python batch_tool.py list --limit 5
 ```
 
-## Logging
+## Logging & Debugging
+
+### Log Files
 
 All operations are logged to `logs/batch_YYYYMMDD_HHMMSS.log` (or use `--log-file <path>`):
 
@@ -341,6 +397,27 @@ All operations are logged to `logs/batch_YYYYMMDD_HHMMSS.log` (or use `--log-fil
 - Request metadata (without secrets)
 - Response data (except large result files)
 - Error details and stack traces
+
+### Verbose Mode
+
+Use `--verbose` with any command to display raw API responses for debugging:
+
+```bash
+# See exactly what the OpenAI API returns
+python batch_tool.py status --batch-id batch-123 --verbose
+
+# Debug upload issues
+python batch_tool.py create --in requests.jsonl --verbose
+
+# Inspect all batch metadata
+python batch_tool.py list --verbose
+```
+
+**Verbose output shows:**
+- Complete JSON responses from OpenAI API
+- All metadata fields (created_at, completed_at, error details, etc.)
+- Request counts and status details
+- Useful for debugging API issues or understanding batch behavior
 
 ---
 
