@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-OpenAI Batch API CLI tool for creating, monitoring, retrieving, and cancelling batch jobs.
+OpenAI Batch API CLI tool for creating, monitoring, retrieving, cancelling, and listing batch jobs.
 
 Usage:
     python batch_tool.py create --in input.jsonl
     python batch_tool.py status --batch-id batch_123
     python batch_tool.py retrieve --batch-id batch_123 --out results.jsonl
     python batch_tool.py cancel --batch-id batch_123
+    python batch_tool.py list --limit 10
 """
 
 import argparse
@@ -132,6 +133,29 @@ def cancel_batch(client: OpenAI, batch_id: str, logger: logging.Logger) -> Dict[
         
     except Exception as e:
         logger.error(f"CANCEL_BATCH - Failed: {str(e)}")
+        raise
+
+
+def list_batches(client: OpenAI, limit: Optional[int], logger: logging.Logger) -> list:
+    """List batch jobs and return list of batch info."""
+    logger.info(f"LIST_BATCHES - Starting batch listing with limit={limit}")
+    
+    try:
+        batches = []
+        # Use the paginated list method
+        batch_list = client.batches.list(limit=limit) if limit else client.batches.list()
+        
+        for batch in batch_list:
+            batch_dict = batch.model_dump()
+            batches.append(batch_dict)
+        
+        logger.info(f"LIST_BATCHES - Success: retrieved {len(batches)} batches")
+        logger.info(f"LIST_BATCHES - Batch IDs: {[b.get('id', 'unknown') for b in batches]}")
+        
+        return batches
+        
+    except Exception as e:
+        logger.error(f"LIST_BATCHES - Failed: {str(e)}")
         raise
 
 
@@ -306,6 +330,58 @@ def cmd_cancel(args: argparse.Namespace, client: OpenAI, logger: logging.Logger)
         return 1
 
 
+def cmd_list(args: argparse.Namespace, client: OpenAI, logger: logging.Logger) -> int:
+    """Handle list subcommand."""
+    try:
+        # List all batches
+        batches = list_batches(client, args.limit, logger)
+        
+        if not batches:
+            print("No batch jobs found.")
+            return 0
+        
+        # Display header
+        print(f"Found {len(batches)} batch job(s):\n")
+        
+        # Display batches in a table format
+        for i, batch in enumerate(batches, 1):
+            batch_id = batch.get('id', 'unknown')
+            status = batch.get('status', 'unknown')
+            endpoint = batch.get('endpoint', 'unknown')
+            
+            print(f"{i}. Batch ID: {batch_id}")
+            print(f"   Status: {status}")
+            print(f"   Endpoint: {endpoint}")
+            
+            # Show creation time
+            if 'created_at' in batch:
+                from datetime import datetime
+                created_at = datetime.fromtimestamp(batch['created_at']).strftime('%Y-%m-%d %H:%M:%S')
+                print(f"   Created: {created_at}")
+            
+            # Show completion time if available
+            if 'completed_at' in batch and batch['completed_at']:
+                completed_at = datetime.fromtimestamp(batch['completed_at']).strftime('%Y-%m-%d %H:%M:%S')
+                print(f"   Completed: {completed_at}")
+            
+            # Show request counts if available
+            if 'request_counts' in batch:
+                counts = batch['request_counts']
+                total = counts.get('total', 0)
+                completed = counts.get('completed', 0)
+                failed = counts.get('failed', 0)
+                print(f"   Requests: {completed}/{total} completed, {failed} failed")
+            
+            print()  # Empty line between batches
+        
+        return 0
+        
+    except Exception as e:
+        print(f"Error: {str(e)}", file=sys.stderr)
+        logger.error(f"List command failed: {str(e)}")
+        return 1
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create command line argument parser."""
     parser = argparse.ArgumentParser(
@@ -317,6 +393,7 @@ Examples:
   %(prog)s status --batch-id batch_abc123
   %(prog)s retrieve --batch-id batch_abc123 --out my_results.jsonl
   %(prog)s cancel --batch-id batch_abc123
+  %(prog)s list --limit 10
         """
     )
     
@@ -351,6 +428,10 @@ Examples:
     # Cancel subcommand
     cancel_parser = subparsers.add_parser('cancel', help='Cancel batch job')
     cancel_parser.add_argument('--batch-id', required=True, help='Batch ID to cancel')
+    
+    # List subcommand
+    list_parser = subparsers.add_parser('list', help='List all batch jobs')
+    list_parser.add_argument('--limit', type=int, help='Maximum number of batches to retrieve')
     
     return parser
 
@@ -395,6 +476,8 @@ def main() -> int:
             return cmd_retrieve(args, client, logger)
         elif args.command == 'cancel':
             return cmd_cancel(args, client, logger)
+        elif args.command == 'list':
+            return cmd_list(args, client, logger)
         else:
             print(f"Error: Unknown command: {args.command}", file=sys.stderr)
             return 1

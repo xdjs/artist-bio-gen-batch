@@ -23,7 +23,9 @@ from batch_tool import (
     cmd_status,
     cmd_retrieve,
     cmd_cancel,
+    cmd_list,
     cancel_batch,
+    list_batches,
     main
 )
 
@@ -622,6 +624,206 @@ class TestCancelFunctionality(unittest.TestCase):
         
         self.assertEqual(args.command, 'cancel')
         self.assertEqual(args.batch_id, 'batch_test123')
+
+
+class TestListFunctionality(unittest.TestCase):
+    """Test list batches functionality."""
+    
+    def test_list_batches_success(self):
+        """Test successful batch listing."""
+        mock_client = Mock()
+        
+        # Mock batch objects
+        mock_batch1 = Mock()
+        mock_batch1.model_dump.return_value = {
+            'id': 'batch_test123',
+            'status': 'completed',
+            'created_at': 1640995200,
+            'endpoint': '/v1/responses',
+            'request_counts': {'total': 10, 'completed': 10, 'failed': 0}
+        }
+        
+        mock_batch2 = Mock()
+        mock_batch2.model_dump.return_value = {
+            'id': 'batch_test456',
+            'status': 'in_progress',
+            'created_at': 1640995260,
+            'endpoint': '/v1/responses',
+            'request_counts': {'total': 5, 'completed': 3, 'failed': 0}
+        }
+        
+        # Mock the list method to return an iterable
+        mock_client.batches.list.return_value = [mock_batch1, mock_batch2]
+        
+        # Mock logger
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            # Test list_batches function
+            result = list_batches(mock_client, None, logger)
+            
+            # Verify API was called correctly
+            mock_client.batches.list.assert_called_once()
+            
+            # Verify response
+            self.assertEqual(len(result), 2)
+            self.assertEqual(result[0]['id'], 'batch_test123')
+            self.assertEqual(result[1]['id'], 'batch_test456')
+    
+    def test_list_batches_with_limit(self):
+        """Test batch listing with limit."""
+        mock_client = Mock()
+        mock_batch = Mock()
+        mock_batch.model_dump.return_value = {'id': 'batch_test123', 'status': 'completed'}
+        mock_client.batches.list.return_value = [mock_batch]
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            result = list_batches(mock_client, 5, logger)
+            
+            # Verify limit was passed
+            mock_client.batches.list.assert_called_once_with(limit=5)
+            self.assertEqual(len(result), 1)
+    
+    def test_list_batches_api_error(self):
+        """Test list batches with API error."""
+        mock_client = Mock()
+        mock_client.batches.list.side_effect = Exception("API Error")
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            # Should raise the exception
+            with self.assertRaises(Exception) as cm:
+                list_batches(mock_client, None, logger)
+            
+            self.assertEqual(str(cm.exception), "API Error")
+    
+    def test_cmd_list_success(self):
+        """Test cmd_list function success."""
+        # Mock args
+        args = Mock()
+        args.limit = 10
+        
+        # Mock client
+        mock_client = Mock()
+        
+        # Mock logger  
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            # Mock list_batches function
+            with patch('batch_tool.list_batches') as mock_list:
+                mock_list.return_value = [
+                    {
+                        'id': 'batch_test123',
+                        'status': 'completed',
+                        'endpoint': '/v1/responses',
+                        'created_at': 1640995200,
+                        'completed_at': 1640995800,
+                        'request_counts': {'total': 10, 'completed': 10, 'failed': 0}
+                    },
+                    {
+                        'id': 'batch_test456',
+                        'status': 'in_progress',
+                        'endpoint': '/v1/responses',
+                        'created_at': 1640995260
+                    }
+                ]
+                
+                # Capture stdout
+                with patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
+                    result = cmd_list(args, mock_client, logger)
+                
+                # Check result
+                self.assertEqual(result, 0)
+                
+                # Check output
+                output = mock_stdout.getvalue()
+                self.assertIn('Found 2 batch job(s)', output)
+                self.assertIn('batch_test123', output)
+                self.assertIn('batch_test456', output)
+                self.assertIn('completed', output)
+                self.assertIn('in_progress', output)
+                self.assertIn('10/10 completed', output)
+    
+    def test_cmd_list_no_batches(self):
+        """Test cmd_list with no batches."""
+        args = Mock()
+        args.limit = None
+        mock_client = Mock()
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            with patch('batch_tool.list_batches') as mock_list:
+                mock_list.return_value = []
+                
+                with patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
+                    result = cmd_list(args, mock_client, logger)
+                
+                self.assertEqual(result, 0)
+                output = mock_stdout.getvalue()
+                self.assertIn('No batch jobs found', output)
+    
+    def test_cmd_list_error(self):
+        """Test cmd_list with error."""
+        args = Mock()
+        args.limit = None
+        mock_client = Mock()
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            with patch('batch_tool.list_batches') as mock_list:
+                mock_list.side_effect = Exception("List failed")
+                
+                with patch('sys.stderr', new_callable=io.StringIO) as mock_stderr:
+                    result = cmd_list(args, mock_client, logger)
+                
+                self.assertEqual(result, 1)
+                output = mock_stderr.getvalue()
+                self.assertIn('List failed', output)
+    
+    def test_main_function_list_command(self):
+        """Test main function with list command."""
+        test_args = [
+            'batch_tool.py',
+            'list',
+            '--limit', '5'
+        ]
+        
+        with patch('sys.argv', test_args):
+            with patch.dict(os.environ, {'OPENAI_API_KEY': 'test_key'}):
+                with patch('batch_tool.OpenAI') as mock_openai_class:
+                    with patch('batch_tool.cmd_list', return_value=0) as mock_cmd_list:
+                        with patch('batch_tool.setup_logger'):
+                            result = main()
+                        
+                        # Check that cmd_list was called
+                        self.assertEqual(mock_cmd_list.call_count, 1)
+                        self.assertEqual(result, 0)
+    
+    def test_parser_includes_list_command(self):
+        """Test that argument parser includes list command."""
+        parser = create_parser()
+        
+        # Parse list command without limit
+        args = parser.parse_args(['list'])
+        self.assertEqual(args.command, 'list')
+        self.assertIsNone(args.limit)
+        
+        # Parse list command with limit
+        args = parser.parse_args(['list', '--limit', '10'])
+        self.assertEqual(args.command, 'list')
+        self.assertEqual(args.limit, 10)
 
 
 if __name__ == '__main__':
