@@ -22,6 +22,8 @@ from batch_tool import (
     cmd_create,
     cmd_status,
     cmd_retrieve,
+    cmd_cancel,
+    cancel_batch,
     main
 )
 
@@ -467,6 +469,159 @@ class TestMainFunctionIntegration(unittest.TestCase):
                     self.assertEqual(result, 1)
                     output = mock_stderr.getvalue()
                     self.assertIn("interrupted", output.lower())
+
+
+class TestCancelFunctionality(unittest.TestCase):
+    """Test cancel batch functionality."""
+    
+    def test_cancel_batch_success(self):
+        """Test successful batch cancellation."""
+        mock_client = Mock()
+        mock_response = Mock()
+        mock_response.model_dump.return_value = {
+            'id': 'batch_test123',
+            'status': 'cancelling',
+            'created_at': 1640995200  # 2022-01-01 00:00:00 UTC
+        }
+        mock_client.batches.cancel.return_value = mock_response
+        
+        # Mock logger
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            # Test cancel_batch function
+            result = cancel_batch(mock_client, 'batch_test123', logger)
+            
+            # Verify API was called correctly
+            mock_client.batches.cancel.assert_called_once_with('batch_test123')
+            
+            # Verify response
+            self.assertEqual(result['status'], 'cancelling')
+            self.assertEqual(result['id'], 'batch_test123')
+    
+    def test_cancel_batch_api_error(self):
+        """Test cancel batch with API error."""
+        mock_client = Mock()
+        mock_client.batches.cancel.side_effect = Exception("API Error")
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            # Should raise the exception
+            with self.assertRaises(Exception) as cm:
+                cancel_batch(mock_client, 'batch_test123', logger)
+            
+            self.assertEqual(str(cm.exception), "API Error")
+    
+    def test_cmd_cancel_success(self):
+        """Test cmd_cancel function success."""
+        # Mock args
+        args = Mock()
+        args.batch_id = 'batch_test123'
+        
+        # Mock client
+        mock_client = Mock()
+        
+        # Mock logger  
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            # Mock cancel_batch function
+            with patch('batch_tool.cancel_batch') as mock_cancel:
+                mock_cancel.return_value = {
+                    'id': 'batch_test123',
+                    'status': 'cancelled',
+                    'created_at': 1640995200
+                }
+                
+                # Capture stdout
+                with patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
+                    result = cmd_cancel(args, mock_client, logger)
+                
+                # Check result
+                self.assertEqual(result, 0)
+                
+                # Check output
+                output = mock_stdout.getvalue()
+                self.assertIn('batch_test123', output)
+                self.assertIn('cancelled', output)
+                self.assertIn('successfully cancelled', output)
+    
+    def test_cmd_cancel_cancelling_status(self):
+        """Test cmd_cancel with cancelling status."""
+        args = Mock()
+        args.batch_id = 'batch_test123'
+        mock_client = Mock()
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            with patch('batch_tool.cancel_batch') as mock_cancel:
+                mock_cancel.return_value = {
+                    'id': 'batch_test123',
+                    'status': 'cancelling'
+                }
+                
+                with patch('sys.stdout', new_callable=io.StringIO) as mock_stdout:
+                    result = cmd_cancel(args, mock_client, logger)
+                
+                self.assertEqual(result, 0)
+                output = mock_stdout.getvalue()
+                self.assertIn('cancellation in progress', output)
+                self.assertIn('10 minutes', output)
+    
+    def test_cmd_cancel_error(self):
+        """Test cmd_cancel with error."""
+        args = Mock()
+        args.batch_id = 'batch_test123'
+        mock_client = Mock()
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "test.log"
+            logger = setup_logger(log_path)
+            
+            with patch('batch_tool.cancel_batch') as mock_cancel:
+                mock_cancel.side_effect = Exception("Cancel failed")
+                
+                with patch('sys.stderr', new_callable=io.StringIO) as mock_stderr:
+                    result = cmd_cancel(args, mock_client, logger)
+                
+                self.assertEqual(result, 1)
+                output = mock_stderr.getvalue()
+                self.assertIn('Cancel failed', output)
+    
+    def test_main_function_cancel_command(self):
+        """Test main function with cancel command."""
+        test_args = [
+            'batch_tool.py',
+            'cancel',
+            '--batch-id', 'batch_test123'
+        ]
+        
+        with patch('sys.argv', test_args):
+            with patch.dict(os.environ, {'OPENAI_API_KEY': 'test_key'}):
+                with patch('batch_tool.OpenAI') as mock_openai_class:
+                    with patch('batch_tool.cmd_cancel', return_value=0) as mock_cmd_cancel:
+                        with patch('batch_tool.setup_logger'):
+                            result = main()
+                        
+                        # Check that cmd_cancel was called
+                        self.assertEqual(mock_cmd_cancel.call_count, 1)
+                        self.assertEqual(result, 0)
+    
+    def test_parser_includes_cancel_command(self):
+        """Test that argument parser includes cancel command."""
+        parser = create_parser()
+        
+        # Parse cancel command
+        args = parser.parse_args(['cancel', '--batch-id', 'batch_test123'])
+        
+        self.assertEqual(args.command, 'cancel')
+        self.assertEqual(args.batch_id, 'batch_test123')
 
 
 if __name__ == '__main__':

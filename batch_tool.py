@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-OpenAI Batch API CLI tool for creating, monitoring, and retrieving batch jobs.
+OpenAI Batch API CLI tool for creating, monitoring, retrieving, and cancelling batch jobs.
 
 Usage:
     python batch_tool.py create --in input.jsonl
     python batch_tool.py status --batch-id batch_123
     python batch_tool.py retrieve --batch-id batch_123 --out results.jsonl
+    python batch_tool.py cancel --batch-id batch_123
 """
 
 import argparse
@@ -112,6 +113,25 @@ def get_batch_status(client: OpenAI, batch_id: str, logger: logging.Logger) -> D
         
     except Exception as e:
         logger.error(f"GET_STATUS - Failed: {str(e)}")
+        raise
+
+
+def cancel_batch(client: OpenAI, batch_id: str, logger: logging.Logger) -> Dict[str, Any]:
+    """Cancel a batch job and return batch info."""
+    logger.info(f"CANCEL_BATCH - Starting batch cancellation: batch_id={batch_id}")
+    
+    try:
+        response = client.batches.cancel(batch_id)
+        batch_dict = response.model_dump()
+        
+        status = batch_dict.get('status', 'unknown')
+        logger.info(f"CANCEL_BATCH - Success: status={status}")
+        logger.info(f"CANCEL_BATCH - Response: {batch_dict}")
+        
+        return batch_dict
+        
+    except Exception as e:
+        logger.error(f"CANCEL_BATCH - Failed: {str(e)}")
         raise
 
 
@@ -256,6 +276,36 @@ def cmd_retrieve(args: argparse.Namespace, client: OpenAI, logger: logging.Logge
         return 1
 
 
+def cmd_cancel(args: argparse.Namespace, client: OpenAI, logger: logging.Logger) -> int:
+    """Handle cancel subcommand."""
+    try:
+        # Cancel the batch
+        batch_info = cancel_batch(client, args.batch_id, logger)
+        status = batch_info.get('status', 'unknown')
+        
+        # Output to stdout
+        print(f"Batch cancellation initiated: {args.batch_id}")
+        print(f"Status: {status}")
+        
+        # Show additional info if available
+        if 'created_at' in batch_info:
+            from datetime import datetime
+            created_at = datetime.fromtimestamp(batch_info['created_at']).strftime('%Y-%m-%d %H:%M:%S')
+            print(f"Created: {created_at}")
+        
+        if status == 'cancelled':
+            print("Note: Batch was successfully cancelled. Any completed requests have been processed and you will be charged for them.")
+        elif status == 'cancelling':
+            print("Note: Batch cancellation in progress. This may take up to 10 minutes.")
+        
+        return 0
+        
+    except Exception as e:
+        print(f"Error: {str(e)}", file=sys.stderr)
+        logger.error(f"Cancel command failed: {str(e)}")
+        return 1
+
+
 def create_parser() -> argparse.ArgumentParser:
     """Create command line argument parser."""
     parser = argparse.ArgumentParser(
@@ -266,6 +316,7 @@ Examples:
   %(prog)s create --in requests.jsonl --endpoint "/v1/responses" --completion-window 24h
   %(prog)s status --batch-id batch_abc123
   %(prog)s retrieve --batch-id batch_abc123 --out my_results.jsonl
+  %(prog)s cancel --batch-id batch_abc123
         """
     )
     
@@ -296,6 +347,10 @@ Examples:
     retrieve_parser = subparsers.add_parser('retrieve', help='Retrieve batch results')
     retrieve_parser.add_argument('--batch-id', required=True, help='Batch ID to retrieve')
     retrieve_parser.add_argument('--out', help='Output file path (default: results_<batch_id>.jsonl)')
+    
+    # Cancel subcommand
+    cancel_parser = subparsers.add_parser('cancel', help='Cancel batch job')
+    cancel_parser.add_argument('--batch-id', required=True, help='Batch ID to cancel')
     
     return parser
 
@@ -338,6 +393,8 @@ def main() -> int:
             return cmd_status(args, client, logger)
         elif args.command == 'retrieve':
             return cmd_retrieve(args, client, logger)
+        elif args.command == 'cancel':
+            return cmd_cancel(args, client, logger)
         else:
             print(f"Error: Unknown command: {args.command}", file=sys.stderr)
             return 1
