@@ -3,7 +3,7 @@
 A collection of Python CLI tools for processing artist data with OpenAI's Batch API:
 
 1. **`gen_batch_jsonl.py`** - Converts CSV files of artist data into OpenAI Batch API JSONL format
-2. **`batch_tool.py`** - Manages OpenAI Batch API operations (create, status, retrieve, cancel)
+2. **`batch_tool.py`** - Manages OpenAI Batch API operations (create, status, retrieve, cancel, list)
 
 ## Requirements
 
@@ -47,6 +47,9 @@ python batch_tool.py retrieve --batch-id batch-def456 --out final_results.jsonl
 
 # 5. Or cancel if needed (charges apply for completed work)
 python batch_tool.py cancel --batch-id batch-def456
+
+# 6. List all batches to see overview
+python batch_tool.py list --limit 10
 ```
 
 ---
@@ -194,7 +197,7 @@ python gen_batch_jsonl.py --in samples/input.csv --out test.jsonl --prompt-id te
 
 # Tool 2: OpenAI Batch API Manager (`batch_tool.py`)
 
-Manages OpenAI Batch API operations: creating batches, checking status, retrieving results, and cancelling jobs.
+Manages OpenAI Batch API operations: creating batches, checking status, retrieving results, cancelling jobs, and listing all batches.
 
 ## Operations
 
@@ -287,11 +290,54 @@ Note: Batch cancellation in progress. This may take up to 10 minutes.
 - Cancellation may take up to 10 minutes to complete
 - Once cancelled, partial results (if any) will be available in the output file
 
+### 5. List Batches
+
+List all batch jobs in your account:
+
+```bash
+python batch_tool.py list
+```
+
+**Options:**
+- `--limit <number>` (optional): Maximum number of batches to retrieve
+
+**Output example:**
+```
+Found 3 batch job(s):
+
+1. Batch ID: batch_abc123
+   Status: completed
+   Endpoint: /v1/responses
+   Created: 2024-01-15 10:30:00
+   Completed: 2024-01-15 11:45:00
+   Requests: 100/100 completed, 0 failed
+
+2. Batch ID: batch_def456
+   Status: in_progress
+   Endpoint: /v1/responses
+   Created: 2024-01-15 12:15:00
+   Requests: 75/150 completed, 2 failed
+
+3. Batch ID: batch_ghi789
+   Status: queued
+   Endpoint: /v1/responses
+   Created: 2024-01-15 13:00:00
+```
+
+**Usage examples:**
+```bash
+# List all batches
+python batch_tool.py list
+
+# List only the 5 most recent batches
+python batch_tool.py list --limit 5
+```
+
 ## Logging
 
 All operations are logged to `logs/batch_YYYYMMDD_HHMMSS.log` (or use `--log-file <path>`):
 
-- All API operations (UPLOAD, CREATE_BATCH, GET_STATUS, CANCEL_BATCH, DOWNLOAD_RESULTS)
+- All API operations (UPLOAD, CREATE_BATCH, GET_STATUS, CANCEL_BATCH, LIST_BATCHES, DOWNLOAD_RESULTS)
 - Request metadata (without secrets)
 - Response data (except large result files)
 - Error details and stack traces
@@ -383,7 +429,7 @@ python -m pytest tests/ -v
 ```
 
 **Test coverage:**
-- 56 total tests (23 for batch_tool.py, 33 for gen_batch_jsonl.py)
+- 64 total tests (31 for batch_tool.py, 33 for gen_batch_jsonl.py)
 - Edge cases: CSV parsing, file validation, API mocking
 - Integration tests: End-to-end workflows
 
